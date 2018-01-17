@@ -2,15 +2,15 @@
 
 from PIL import Image, ImageDraw
 import noise
-import warnings
 import random
 
 class stereogram(object):
-    DPI = 150
-    eye_separation = int(round(2.5*DPI,0))
     mu = (1/3.)
     
-    def __init__(self,depth_map,pattern=None,verbose=True):
+    def __init__(self,depth_map,pattern=None,DPI=75,verbose=True):
+        self.DPI = DPI
+        self.eye_separation = int(round(2.5*DPI,0))
+        #self.eye_separation = 2.5*DPI
         self.verbose = bool(verbose)
         if pattern != None:
             if isinstance(pattern,str):
