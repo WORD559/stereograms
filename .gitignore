@@ -106,3 +106,5 @@ venv.bak/
 
 
 # End of https://www.gitignore.io/api/python
+# Hide stereograms I have generated from git
+*.png
