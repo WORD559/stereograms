@@ -37,18 +37,25 @@ class stereogram(object):
         if self.verbose:
             print content
 
-    def calculate_stereo_separation(self,z):
+    def calculate_stereo_separation(self,z,**kwargs):
+        if kwargs.has_key("E"):
+            E = kwargs["E"]
+        else:
+            E = self.eye_separation
         mu = self.mu
-        E = self.eye_separation
         s = int(round((1-mu*z)*E/(2-mu*z),0))
         return s
 
-    def get_pattern_colour(self,x,y):
-        pix = self.pattern.load()
-        while x >= self.pattern.size[0]:
-            x -= self.pattern.size[0]
-        while y >= self.pattern.size[1]:
-            y -= self.pattern.size[1]
+    def get_pattern_colour(self,x,y,**kwargs):
+        if kwargs.has_key("pattern"):
+            pattern = kwargs["pattern"]
+        else:
+            pattern = self.pattern
+        pix = pattern.load()
+        while x >= pattern.size[0]:
+            x -= pattern.size[0]
+        while y >= pattern.size[1]:
+            y -= pattern.size[1]
         #print x,y
         return pix[x,y]
 
@@ -56,21 +63,30 @@ class stereogram(object):
         shade = random.randrange(0,256)
         return (shade,)*3
 
-    def generate(self):
+    def increase_image_size(self,image,factor):
+        return image.resize((int(round(image.size[0]*factor,0)),int(round(image.size[1]*factor,0))),Image.NEAREST)
+
+    def reduce_image_size(self,image,factor):
+        return image.resize((int(round(image.size[0]/factor,0)),int(round(image.size[1]/factor,0))),Image.ANTIALIAS)
+
+    def generate(self,AA=1):
         mu = self.mu
-        E = self.eye_separation
-        self.stereogram = Image.new("RGB",(self.depth_map.size[0],self.depth_map.size[1]))
-        depth = self.depth_map.load()
-        for y in range(self.depth_map.size[1]):
-            same = [x for x in range(self.depth_map.size[0])]
-            for x in range(self.depth_map.size[0]):
+        DPI = self.DPI * AA
+        E = int(round(2.5*DPI,0))
+        
+        depth_map = self.increase_image_size(self.depth_map,AA)
+        depth = depth_map.load()
+        self.stereogram = Image.new("RGB",(depth_map.size[0],depth_map.size[1]))
+        for y in range(depth_map.size[1]):
+            same = [x for x in range(depth_map.size[0])]
+            for x in range(depth_map.size[0]):
                 z = depth[x,y]/255.
-                s = self.calculate_stereo_separation(z)
+                s = self.calculate_stereo_separation(z,E=E)
 
                 left = x-s/2
                 right = left+s
 
-                if (0 <= left) and (right < self.depth_map.size[0]-1):
+                if (0 <= left) and (right < depth_map.size[0]-1):
                     t = 1
                     zt = z + 2*(2 - mu*z)*t/(mu*E)
                     visible = ((depth[x-t,y]/255. < zt) and (depth[x+t,y]/255. < zt))
@@ -94,15 +110,18 @@ class stereogram(object):
                                 right = l
                         same[left] = right
             pix = self.stereogram.load()
-            for x in range(self.depth_map.size[0]-1,0,-1):
+            if self.pattern != None:
+                pattern = self.increase_image_size(self.pattern,AA)
+            for x in range(depth_map.size[0]-1,0,-1):
                 if same[x] == x:
                     if self.pattern == None:
                         pix[x,y] = self.get_random_colour()
                     else:
-                        pix[x,y] = self.get_pattern_colour(x,y)
+                        pix[x,y] = self.get_pattern_colour(x,y,pattern=pattern)
                 else:
                     pix[x,y] = pix[same[x],y]
 
+        self.stereogram = self.reduce_image_size(self.stereogram,AA)
                     
         draw = ImageDraw.Draw(self.stereogram)
         draw.ellipse((self.depth_map.size[0]/2 - self.calculate_stereo_separation(0)/2 - 10,
